@@ -86,7 +86,7 @@ def main():
         "-e",
         "--export",
         action="store_true",
-        help="Export a json file")
+        help="Export matching mailing lists as a json file")
     parser.add_argument(
         "-p",
         "--plot",
