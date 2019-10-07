@@ -4,17 +4,38 @@
 import argparse
 import configparser
 from datetime import datetime
-from dateutil import parser
 import json
 import os
 import sys
 
+from dateutil import parser
 from mailmanclient import Client
 import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def get_mlist_timedelta(mlists, days):
+def remove_matching_mlists(mlists, days):
+    extracted = {}
+    utcnow = datetime.utcnow()
+    count = 0
+    for m in mlists:
+        if m.settings["last_post_at"]:
+            last_post_at = m.settings["last_post_at"]
+            if last_post_at == "1970-01-01T00:00:00":
+                created_at = m.settings["created_at"]
+                not_used_for = (utcnow - parser.parse(created_at)).days
+            else:
+                not_used_for = (utcnow - parser.parse(last_post_at)).days
+            if not_used_for >= days:
+                count += 1
+                print("Removing {}...".format(m.fqdn_listname))
+                m.delete()
+            else:
+                continue
+    return count
+
+
+def get_mlists_timedelta(mlists, days):
     extracted = {}
     utcnow = datetime.utcnow()
     for m in mlists:
@@ -29,6 +50,7 @@ def get_mlist_timedelta(mlists, days):
             if not_used_for >= days:
                 listinfo.update({
                     "last_post_at": last_post_at,
+
                     "not_used_for": not_used_for,
                 })
             else:
@@ -51,27 +73,25 @@ def get_config_data(config_path):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog="ome.py")
     parser.add_argument(
-        "-e",
-        "--export",
-        action="store_true",
-        help="Export the json file")
-    parser.add_argument(
-        "-d",
-        "--days",
-        help="",
-        required=True,
+        "days",
+        help="Extract mailing lists not used for specified days or more",
         type=int)
     parser.add_argument(
         "-f",
         "--file",
         help="Specify an alternate config file")
     parser.add_argument(
+        "-e",
+        "--export",
+        action="store_true",
+        help="Export a json file")
+    parser.add_argument(
         "-p",
         "--plot",
         action = "store_true",
-        help = "Export the histogram")
+        help = "Export a histogram")
     parser.add_argument(
         "-r",
         "--remove",
@@ -81,7 +101,7 @@ def main():
 
     if args.file:
         if os.path.isfile(args.file):
-            root_url, restuser, restpass=config(args.file)
+            root_url, restuser, restpass=get_config_data(args.file)
         else:
             print("{}: No such file".format(args.file), file=sys.stderr)
             sys.exit(1)
@@ -91,7 +111,13 @@ def main():
         root_url, restuser, restpass = get_config_data(path)
 
     client=Client(root_url, restuser, restpass)
-    extracted = get_mlist_timedelta(client.lists, args.days)
+
+    if args.remove:
+        count = remove_matching_mlists(client.lists, args.days)
+        print("Removed {} mailing lists".format(count))
+        sys.exit(0)
+
+    extracted = get_mlists_timedelta(client.lists, args.days)
 
     if args.export:
         f = open("mlists.json", "w")
