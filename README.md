@@ -22,7 +22,7 @@ Specify an alternate config file.
 
 #### `-e, --export`
 
-Export mailing lists as a json file
+Export matching mailing lists as a json file
 
 #### `-p, --plot`
 
