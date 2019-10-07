@@ -101,7 +101,7 @@ def main():
 
     if args.file:
         if os.path.isfile(args.file):
-            root_url, restuser, restpass=config(args.file)
+            root_url, restuser, restpass=get_config_data(args.file)
         else:
             print("{}: No such file".format(args.file), file=sys.stderr)
             sys.exit(1)
