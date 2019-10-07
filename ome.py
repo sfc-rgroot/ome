@@ -6,6 +6,7 @@ import configparser
 from datetime import datetime
 import json
 import os
+import pathlib
 import sys
 
 from dateutil import parser
@@ -15,9 +16,8 @@ import pandas as pd
 
 
 def remove_matching_mlists(mlists, days):
-    extracted = {}
+    deleted = {}
     utcnow = datetime.utcnow()
-    count = 0
     for m in mlists:
         if m.settings["last_post_at"]:
             last_post_at = m.settings["last_post_at"]
@@ -27,12 +27,11 @@ def remove_matching_mlists(mlists, days):
             else:
                 not_used_for = (utcnow - parser.parse(last_post_at)).days
             if not_used_for >= days:
-                count += 1
-                print("Removing {}...".format(m.fqdn_listname))
                 m.delete()
+                deleted.append(m.fqdn_listname)
             else:
                 continue
-    return count
+    return deleted
 
 
 def get_mlists_timedelta(mlists, days):
@@ -90,31 +89,37 @@ def main():
     parser.add_argument(
         "-p",
         "--plot",
-        action = "store_true",
-        help = "Export a histogram")
+        action="store_true",
+        help="Export a histogram")
     parser.add_argument(
         "-r",
         "--remove",
-        action = "store_true",
-        help = "Remove matching mailing lists")
-    args=parser.parse_args()
+        action="store_true",
+        help="Remove matching mailing lists")
+    args = parser.parse_args()
 
     if args.file:
-        if os.path.isfile(args.file):
-            root_url, restuser, restpass=get_config_data(args.file)
+        p = pathlib.Path(args.file)
+        if p.is_absolute():
+            if os.path.isfile(p):
+                root_url, restuser, restpass = get_config_data(p)
+            else:
+                print("{}: No such file".format(args.file), file=sys.stderr)
+                sys.exit(1)
         else:
-            print("{}: No such file".format(args.file), file=sys.stderr)
-            sys.exit(1)
+            if os.path.isfile(os.path.join(os.getcwd(), p)):
+                root_url, restuser, restpass = get_config_data(p)
+            else:
+                print("{}: No such file".format(args.file), file=sys.stderr)
+                sys.exit(1)
     else:
-        dirname = os.path.dirname(__file__)
-        path = os.path.join(dirname, "omeconf")
-        root_url, restuser, restpass = get_config_data(path)
+        root_url, restuser, restpass = get_config_data("./omeconf")
 
-    client=Client(root_url, restuser, restpass)
+    client = Client(root_url, restuser, restpass)
 
     if args.remove:
-        count = remove_matching_mlists(client.lists, args.days)
-        print("Removed {} mailing lists".format(count))
+        deleted = remove_matching_mlists(client.lists, args.days)
+        print("Removed {} mailing lists".format(len(deleted)))
         sys.exit(0)
 
     extracted = get_mlists_timedelta(client.lists, args.days)
