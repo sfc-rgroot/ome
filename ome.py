@@ -16,7 +16,7 @@ import pandas as pd
 
 
 def remove_matching_mlists(mlists, days):
-    deleted = {}
+    deleted = 0
     utcnow = datetime.utcnow()
     for m in mlists:
         if m.settings["last_post_at"]:
@@ -28,7 +28,7 @@ def remove_matching_mlists(mlists, days):
                 not_used_for = (utcnow - parser.parse(last_post_at)).days
             if not_used_for >= days:
                 m.delete()
-                deleted.append(m.fqdn_listname)
+                deleted += 1
             else:
                 continue
     return deleted
@@ -119,7 +119,7 @@ def main():
 
     if args.remove:
         deleted = remove_matching_mlists(client.lists, args.days)
-        print("Removed {} mailing lists".format(len(deleted)))
+        print("Removed {} mailing lists".format(deleted))
         sys.exit(0)
 
     extracted = get_mlists_timedelta(client.lists, args.days)
